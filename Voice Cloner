@@ -1,0 +1,34 @@
+import gradio as gr
+from encoder import inference as encoder
+from synthesizer.inference import Synthesizer
+from vocoder import inference as vocoder
+import numpy as np
+import librosa
+import soundfile as sf
+import os
+
+# Load AI models
+encoder.load_model("saved_models/encoder/saved_model.pt")
+synthesizer = Synthesizer("saved_models/synthesizer/saved_model", low_mem=True)
+vocoder.load_model("saved_models/vocoder/saved_model.pt")
+
+# Load and embed your voice
+voice_path = "myvoice.wav"
+voice, _ = librosa.load(voice_path, sr=16000)
+embedding = encoder.embed_utterance(voice)
+
+def speak_story(story_text):
+    specs = synthesizer.synthesize_spectrograms([story_text], [embedding])
+    audio = vocoder.infer_waveform(specs[0])
+    out_path = "output.wav"
+    sf.write(out_path, audio, 22050)
+    return out_path
+
+# Create Gradio interface
+gr.Interface(
+    fn=speak_story,
+    inputs=gr.Textbox(lines=10, label="📖 Your Story"),
+    outputs=gr.Audio(type="filepath", label="🔊 AI Voice Output"),
+    title="🎤 AI Voice Storytelling with My Voice",
+    description="Type your story and hear it spoken in your cloned voice!"
+).launch()
